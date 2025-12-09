@@ -13,6 +13,7 @@ from docx.comments import Comment, Comments
 from docx.document import Document, _Body
 from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_BREAK
+from docx.footnotes import Footnotes
 from docx.opc.coreprops import CoreProperties
 from docx.oxml.document import CT_Body, CT_Document
 from docx.parts.document import DocumentPart
@@ -201,10 +202,12 @@ class DescribeDocument:
 
         assert core_properties is core_properties_
 
-    def it_provides_access_to_its_inline_shapes(self, document_part_: Mock, inline_shapes_: Mock):
-        document_part_.inline_shapes = inline_shapes_
-        document = Document(cast(CT_Document, element("w:document")), document_part_)
+    def it_provides_access_to_its_footnotes(self, footnotes_fixture):
+        document, footnotes_ = footnotes_fixture
+        assert document.footnotes is footnotes_
 
+    def it_provides_access_to_its_inline_shapes(self, inline_shapes_fixture):
+        document, inline_shapes_ = inline_shapes_fixture
         assert document.inline_shapes is inline_shapes_
 
     def it_can_iterate_the_inner_content_of_the_document(
@@ -287,7 +290,33 @@ class DescribeDocument:
         assert width == 3500
 
     # -- fixtures --------------------------------------------------------------------------------
+    
+    @pytest.fixture(
+        params=[
+            (
+                'w:footnotes/(w:footnote{w:id=-1}/w:p/w:r/w:t"minus one note", w:footnote{w:id=0}/w:p/w:r/w:t"zero note")'
+            ),
+            (
+                'w:footnotes/(w:footnote{w:id=1}/w:p/w:r/w:t"first note", w:footnote{w:id=2}/w:p/w:r/w:t"second note")'
+            ),
+            (
+                'w:footnotes/(w:footnote{w:id=1}/w:p/w:r/w:t"first note", w:footnote{w:id=2}/w:p/w:r/w:t"second note", w:footnote{w:id=3}/w:p/w:r/w:t"third note")'
+            ),
+        ]
+    )
+    def footnotes_fixture(self, request, document_part_):
+        footnotes_cxml = request.param
+        document = Document(None, document_part_)
+        footnotes = Footnotes(element(footnotes_cxml), None)
+        document_part_.footnotes = footnotes
+        return document, footnotes
 
+    @pytest.fixture
+    def inline_shapes_fixture(self, document_part_, inline_shapes_):
+        document = Document(None, document_part_)
+        document_part_.inline_shapes = inline_shapes_
+        return document, inline_shapes_
+    
     @pytest.fixture
     def add_paragraph_(self, request: FixtureRequest):
         return method_mock(request, Document, "add_paragraph")
